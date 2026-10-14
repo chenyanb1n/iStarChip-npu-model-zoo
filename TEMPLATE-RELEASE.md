@@ -103,3 +103,43 @@ Remove-Item -LiteralPath $d -Recurse -Force                    # 验完即删
 | `模板校验失败（sha256 不匹配）` | 传错包或 manifest 填错：重算 §2、重传或改 manifest |
 | `下载失败：download -> HTTP 404` | tag/asset 名与 manifest `file` 对不上，或 Release 还在草稿没 Publish |
 | 离线/慢网 | 正常：有旧缓存用旧缓存 + 黄字提示；有缓存的机器不受影响 |
+
+## 9. 把下载指向其他服务器（长期容量方案）
+
+> GitHub 只适合起步：单文件 2GB 上限、Release 存几 GB 就显重，
+> 模板一多（6 个已 ~3.4GB）必然搬家。好消息：**搬家只改 manifest，
+> 不改客户端、不发版**——当初 `file` 就是按绝对 URL 设计的。
+
+### 9.1 新服务器要满足什么（静态文件服务即可，无需写接口）
+
+- HTTPS GET 能拿到文件；HTTP 301/302 跳转 ≤3 次（客户端跟 3 跳，对象存储的
+  签名 URL 跳转一般 1~2 次，够用）；响应带 `Content-Length`（进度条用）。
+- URL 稳定（一旦写入 manifest 就别换）；建议带版本号的路径，
+  如 `https://dl.example.com/npu-templates/sirendetection-v1.zip`。
+- 备选形态都行：Nginx/Apache 目录、OSS/COS/S3 + CDN、自建 MinIO、NAS 前挂 HTTPS。
+- `templates.json` 本身（几百字节）可以**永远留在 GitHub**——只有 zip 要搬；
+  双域混用是设计内行为（babycry 首发就是 raw + releases 双域）。
+
+### 9.2 搬家步骤（零停机，用户无感）
+
+1. 把各模板 zip **原样**传到新服务器（文件名建议不变；字节不动，
+   `size`/`sha256` 就不用改）。
+2. 先验证：浏览器/命令行 GET 新地址能下，且字节数 = manifest 里的 `size`。
+3. 改 `templates.json`：只换各条目的 `file` URL，其余不动 → push。
+   `version` 没变 → 用户本地缓存继续有效，**零重下**。
+4. 观察一轮（新建模板工程成功）后再决定旧 Release assets 删不删；
+   回滚 = 把 `file` 改回旧地址再 push，一分钟生效。
+
+### 9.3 搬家前先试点（不建议一次全切）
+
+- 先搬一个模板（如 siren），babycry 留 GitHub：manifest 天然支持逐条目混布，
+  哪个条目稳了再搬下一个。
+- 试点前可用环境变量让某台机器先行：
+  `NPU_TEMPLATE_SERVER` 覆盖只影响 manifest 地址；要试新 zip 地址，
+  直接改一份本地 manifest 指向它测一遍 §6 即可。
+
+### 9.4 什么时候必须动客户端
+
+- 只有 `templates.json` 本身也要搬家时，才需要改 `TEMPLATE_SERVER_BASE`
+  默认值（`electron/main.js` 一行）并跟 App 发版——而它才几百字节，
+  长期放 GitHub 完全没问题，所以这一天大概率不来。
