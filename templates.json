@@ -1,0 +1,10 @@
+{
+  "templates": {
+    "babycry": {
+      "file": "https://github.com/chenyanb1n/iStarChip-npu-model-zoo/releases/download/babycry-v1/babycry-v1.zip",
+      "version": "1",
+      "size": 319483316,
+      "sha256": "d31ffbf37985637e7005836ab353fd6ecaa675c7496eb5159358cdbd412c582a"
+    }
+  }
+}
